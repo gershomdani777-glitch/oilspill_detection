@@ -1,0 +1,54 @@
+﻿@import 'leaflet/dist/leaflet.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-[#0e0e10] text-bone-white font-sans antialiased;
+    letter-spacing: -0.025em;
+  }
+}
+
+/* Langbase Midnight Aurora Spectrum Decoration */
+.aurora-gradient-bar {
+  background: linear-gradient(90deg, #f6d1ac 0%, #f3b5d2 25%, #c7b8f5 50%, #a7eadc 75%, #afcdf6 100%);
+  height: 8px;
+}
+
+/* Custom Leaflet Map Dark Styling */
+.leaflet-container {
+  background: #0e0e10 !important;
+  font-family: inherit;
+}
+
+.leaflet-popup-content-wrapper {
+  background: #232324 !important;
+  color: #fafafa !important;
+  border: 1px solid #5c5c61 !important;
+  border-radius: 12px !important;
+  box-shadow: none !important;
+  padding: 4px;
+}
+
+.leaflet-popup-tip {
+  background: #232324 !important;
+  border-top: 1px solid #5c5c61 !important;
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #181818;
+}
+::-webkit-scrollbar-thumb {
+  background: #5c5c61;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #a1a1aa;
+}

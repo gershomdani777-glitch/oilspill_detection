@@ -1,0 +1,31 @@
+# Node & Frontend dependencies
+node_modules/
+dist/
+.vite/
+*.local
+
+# Python & Backend
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+htmlcov/
+*.db
+*.sqlite
+*.sqlite3
+
+# Environment & Secrets (NEVER COMMIT)
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.pem
+*.key
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
