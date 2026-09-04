@@ -29,3 +29,7 @@ htmlcov/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Runtime log files (not source)
+*.log
+!backend/tests/.gitkeep

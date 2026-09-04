@@ -403,6 +403,61 @@ async def run_pipeline_task(job_id: str, region_id: str, geometry: Dict[str, Any
         detections_store[detection_id]["investigative_brief"] = investigative_brief
         detections_store[incident_uuid]["investigative_brief"] = investigative_brief
 
+        # 7. GENERATE SUPABASE ALERT + MARPOL REPORT FOR APPROVER WORKFLOW
+        top_vessel = vessel_dicts[0] if vessel_dicts else {}
+        dms_lat = f"{abs(spill_data['centroid']['lat']):.0f}° {abs(spill_data['centroid']['lat'] % 1 * 60):.0f}' {(abs(spill_data['centroid']['lat']) * 60 % 1 * 60):.1f}\" {'N' if spill_data['centroid']['lat'] >= 0 else 'S'}"
+        dms_lon = f"{abs(spill_data['centroid']['lon']):.0f}° {abs(spill_data['centroid']['lon'] % 1 * 60):.0f}' {(abs(spill_data['centroid']['lon']) * 60 % 1 * 60):.1f}\" {'E' if spill_data['centroid']['lon'] >= 0 else 'W'}"
+        coords_dms = f"{dms_lat} {dms_lon}"
+
+        await supabase_db.insert_alert({
+            "alert_id": f"alert-{uuid.uuid4().hex[:10]}",
+            "incident_id": incident_uuid,
+            "alert_title": f"{severity_level.upper()} PRIORITY: {spill_data['area_km2']:.2f} km² oil slick detected",
+            "priority": severity_level,
+            "alert_body": (
+                f"Automated Sentinel-1 C-SAR dark-spot detection flagged a {spill_data['area_km2']:.2f} km² "
+                f"oil slick at {coords_dms} (confidence {spill_data['confidence']*100:.1f}%). "
+                f"Top suspect vessel: {top_vessel.get('name', 'UNKNOWN')} (MMSI {top_vessel.get('mmsi', 'N/A')}, "
+                f"attribution score {top_vessel.get('attribution_score', 0):.1f}/100)."
+            ),
+            "coordinates_dms": coords_dms,
+            "affected_area_km2": spill_data["area_km2"],
+            "top_suspect_vessel": top_vessel.get("name", "UNKNOWN"),
+            "recommended_immediate_actions": [
+                "Verify with airborne or satellite overflight",
+                "Notify coastal state authority and flag-state administration",
+                "Dispatch pollution response vessel if slick reaches shoreline",
+                "Preserve AIS transmission gap evidence for legal proceedings",
+            ],
+            "notify_agencies": ["Coast Guard", "REMPEC", "Port State Control"],
+            "dispatched": False,
+        })
+
+        await supabase_db.insert_marpol_report({
+            "report_id": f"rpt-{uuid.uuid4().hex[:10]}",
+            "incident_id": incident_uuid,
+            "report_content": {
+                "dossier_title": f"MARPOL Annex I Investigation — {detection_id}",
+                "satellite_telemetry": {
+                    "sensor": "Sentinel-1A C-SAR IW",
+                    "product_id": scene["product_id"],
+                    "polarization": scene["polarization"],
+                    "acquisition": scene["acquisition_timestamp"],
+                },
+                "spill_metrics": {
+                    "area_km2": spill_data["area_km2"],
+                    "confidence": spill_data["confidence"],
+                    "centroid": spill_data["centroid"],
+                },
+                "primary_suspect": top_vessel,
+                "enforcement_recommendation": (
+                    f"Initiate flag-state inspection of {top_vessel.get('name', 'UNKNOWN')} "
+                    f"under MARPOL Annex I; refer kinematic anomaly evidence to coastal state authority."
+                ),
+            },
+            "submitted": False,
+        })
+
         jobs_store[job_id].update({
             "stage": PipelineStage.COMPLETE,
             "progress_pct": 100,
