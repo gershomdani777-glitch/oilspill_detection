@@ -44,7 +44,18 @@ export interface Detection {
     elongation: number;
     compactness: number;
     wind_colocation_ms: number;
+    dist_to_coast_km?: number;
+    dist_to_shipping_lane_km?: number;
+    nearest_shipping_lane?: string;
   };
+  spill_age_bucket?: string;
+  spatial_priors?: {
+    dist_to_coast_km: number;
+    dist_to_shipping_lane_km: number;
+    nearest_shipping_lane: string;
+    look_alike_risk_category: string;
+  };
+  investigative_brief?: string;
 }
 
 export interface VesselPositionPoint {
@@ -64,6 +75,18 @@ export interface ScoreBreakdown {
   historical_violation: number;
 }
 
+export interface KinematicAnomalies {
+  speed_drop_knots: number;
+  initial_speed_knots: number;
+  min_speed_knots: number;
+  heading_deviation_deg: number;
+  deceleration_score?: number;
+  deceleration_label?: string;
+  heading_score?: number;
+  heading_label?: string;
+  kinematic_narrative?: string;
+}
+
 export interface VesselAttribution {
   mmsi: string;
   imo?: string;
@@ -78,6 +101,7 @@ export interface VesselAttribution {
   score_breakdown: ScoreBreakdown;
   evidence_summary: string;
   provenance: ProvenanceType;
+  kinematic_anomalies?: KinematicAnomalies;
 }
 
 export interface DetectionVesselsResponse {
@@ -228,4 +252,83 @@ export interface SupabaseAuditLog {
   raw_api_response: any;
   model_used: string;
   timestamp: string;
+}
+
+// --- COASTAL MONITORING & SENTINEL-1 UPGRADE TYPES ---
+
+export type MonitoringState = 'INACTIVE' | 'ACTIVE' | 'PAUSED' | 'ERROR';
+
+export type SceneStatus =
+  | 'NOT_MONITORED'
+  | 'MONITORING'
+  | 'NEW_ACQUISITION'
+  | 'PROCESSING'
+  | 'PROCESSED'
+  | 'SPILL_DETECTED'
+  | 'ERROR';
+
+export interface CoastalRegion {
+  id: string;
+  name: string;
+  country_scope: string;
+  geometry: {
+    type: string;
+    coordinates: number[][][] | number[][][][];
+  };
+  bbox: number[];
+  area_sq_km: number;
+  enabled: boolean;
+  monitoring_state: MonitoringState;
+  monitoring_started_at?: string | null;
+  monitoring_stopped_at?: string | null;
+  last_checked_at?: string | null;
+  active_spills_count: number;
+  total_scenes_count: number;
+  processed_scenes_count: number;
+  newest_acquisition_time?: string | null;
+  last_error_message?: string | null;
+}
+
+export interface MonitoredScene {
+  id: string;
+  region_id: string;
+  relative_orbit: number;
+  orbit_direction: string;
+  footprint: {
+    type: string;
+    coordinates: number[][][] | number[][][][];
+  };
+  polarization: string;
+  acquisition_mode: string;
+  status: SceneStatus;
+  last_checked_at?: string | null;
+  latest_acquisition_id?: string | null;
+  last_processed_timestamp?: string | null;
+  latest_detection_id?: string | null;
+}
+
+export interface SatelliteAcquisition {
+  id: string;
+  scene_id: string;
+  region_id: string;
+  product_id: string;
+  sensing_start: string;
+  sensing_end: string;
+  publication_time?: string;
+  footprint: any;
+  processing_level: string;
+  status: string;
+  clean_scene: boolean;
+  clean_scene_reason?: string | null;
+  detection_id?: string | null;
+}
+
+export interface RegionMonitoringStatusResponse {
+  region: CoastalRegion;
+  scenes: MonitoredScene[];
+  monitoring_state: MonitoringState;
+  active_spills: number;
+  last_poll_utc?: string | null;
+  poll_interval_minutes: number;
+  copernicus_timeliness: string;
 }

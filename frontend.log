@@ -1,0 +1,60 @@
+
+> frontend@0.0.0 dev
+> vite --host 127.0.0.1 --port 3000
+
+
+  [32m[1mVITE[22m v8.2.2[39m  [2mready in [0m[1m375[22m[2m[0m ms[22m
+
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://127.0.0.1:[1m3000[22m/[39m
+[2m[32m  ➜[39m[22m[2m  press [22m[1mh + enter[22m[2m to show help[22m
+[2m10:48:22 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css, /src/components/map/SpillLayer.tsx[22m
+[2m10:48:34 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/map/MainMap.tsx, /src/index.css[22m
+[2m10:48:40 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/map/MainMap.tsx, /src/index.css[22m
+[2m10:49:21 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css, /src/components/evidence/DetectionFeedSidebar.tsx[22m
+[2m10:49:36 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css, /src/components/map/SpillLayer.tsx[22m
+[2m10:49:55 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css, /src/components/map/SpillLayer.tsx[22m
+[2m1:00:02 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/views/LiveMonitoringView.tsx, /src/index.css[22m
+[2m1:00:21 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/App.tsx, /src/components/ui/StickyNavbar.tsx, /src/components/evidence/ApprovalModal.tsx, /src/views/LiveMonitoringView.tsx, /src/components/map/MainMap.tsx, /src/views/HistoricalView.tsx, /src/components/evidence/AuditLogModal.tsx, /src/components/evidence/EvidencePanel.tsx, /src/components/evidence/DetectionFeedSidebar.tsx, /src/components/ui/StopStartScanButton.tsx, /src/components/historical/TimeSliderBar.tsx, /src/components/historical/HistoricalPicker.tsx and 8 more[22m
+[2m1:00:28 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/App.tsx, /src/components/ui/StickyNavbar.tsx, /src/components/evidence/ApprovalModal.tsx, /src/views/LiveMonitoringView.tsx, /src/components/map/MainMap.tsx, /src/views/HistoricalView.tsx, /src/components/evidence/AuditLogModal.tsx, /src/components/evidence/EvidencePanel.tsx, /src/components/evidence/DetectionFeedSidebar.tsx, /src/components/ui/StopStartScanButton.tsx, /src/components/historical/TimeSliderBar.tsx, /src/components/historical/HistoricalPicker.tsx and 8 more[22m
+[2m1:00:34 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/views/LiveMonitoringView.tsx, /src/index.css[22m
+[2m1:00:42 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/views/LiveMonitoringView.tsx, /src/index.css[22m
+[2m1:01:10 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css, /src/components/map/SpillLayer.tsx[22m
+[2m1:01:17 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css, /src/components/map/SpillLayer.tsx[22m
+[2m1:01:47 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css, /src/components/evidence/DetectionFeedSidebar.tsx[22m
+[2m1:36:03 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/ui/StickyNavbar.tsx, /src/index.css[22m
+[2m1:36:11 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/ui/StickyNavbar.tsx, /src/index.css[22m
+[2m1:36:26 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/ui/StickyNavbar.tsx, /src/index.css[22m
+[2m1:43:51 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/ui/StickyNavbar.tsx, /src/index.css[22m
+[2m1:43:52 PM[22m [31m[1m[vite][22m[39m [31mInternal server error: Transform failed with 1 error:
+
+[31m[PARSE_ERROR] [0mUnexpected token. Did you mean `{'}'}` or `&rbrace;`?
+     [38;5;246m╭[0m[38;5;246m─[0m[38;5;246m[[0m src/components/ui/StickyNavbar.tsx:233:1 [38;5;246m][0m
+     [38;5;246m│[0m
+ [38;5;246m233 │[0m [38;5;249m}[0m[38;5;249m;[0m
+ [38;5;240m    │[0m │ 
+ [38;5;240m    │[0m ╰─ 
+[38;5;246m─────╯[0m
+[39m
+  Plugin: [35mvite:oxc[39m
+  File: [36mE:/oilspill_detection/frontend/src/components/ui/StickyNavbar.tsx[39m
+      at transformWithOxc (file:///E:/oilspill_detection/frontend/node_modules/vite/dist/node/chunks/node.js:4103:19)
+      at TransformPluginContext.transform (file:///E:/oilspill_detection/frontend/node_modules/vite/dist/node/chunks/node.js:4174:26)
+      at EnvironmentPluginContainer.transform (file:///E:/oilspill_detection/frontend/node_modules/vite/dist/node/chunks/node.js:30932:51)
+      at async loadAndTransform (file:///E:/oilspill_detection/frontend/node_modules/vite/dist/node/chunks/node.js:20671:26)
+[2m1:43:52 PM[22m [31m[1m[vite][22m[39m [31mInternal server error: Transform failed with 1 error:
+
+[31m[PARSE_ERROR] [0mUnexpected token. Did you mean `{'}'}` or `&rbrace;`?
+     [38;5;246m╭[0m[38;5;246m─[0m[38;5;246m[[0m src/components/ui/StickyNavbar.tsx:233:1 [38;5;246m][0m
+     [38;5;246m│[0m
+ [38;5;246m233 │[0m [38;5;249m}[0m[38;5;249m;[0m
+ [38;5;240m    │[0m │ 
+ [38;5;240m    │[0m ╰─ 
+[38;5;246m─────╯[0m
+[39m
+  Plugin: [35mvite:oxc[39m
+  File: [36mE:/oilspill_detection/frontend/src/components/ui/StickyNavbar.tsx[39m
+      at transformWithOxc (file:///E:/oilspill_detection/frontend/node_modules/vite/dist/node/chunks/node.js:4103:19)
+      at TransformPluginContext.transform (file:///E:/oilspill_detection/frontend/node_modules/vite/dist/node/chunks/node.js:4174:26)
+      at EnvironmentPluginContainer.transform (file:///E:/oilspill_detection/frontend/node_modules/vite/dist/node/chunks/node.js:30932:51)
+      at async loadAndTransform (file:///E:/oilspill_detection/frontend/node_modules/vite/dist/node/chunks/node.js:20671:26)
+[2m1:44:08 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/ui/StickyNavbar.tsx, /src/index.css[22m

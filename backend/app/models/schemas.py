@@ -19,8 +19,46 @@ class PipelineStage(str, Enum):
     FILTERING = 'filtering'
     QUERYING_AIS = 'querying_ais'
     SCORING = 'scoring'
+    GENERATING_REPORT = 'generating_report'
     COMPLETE = 'complete'
     FAILED = 'failed'
+
+# --- SENTINEL-1 UPGRADE & AUTOMATED MONITORING ENUMS ---
+
+class MonitoringState(str, Enum):
+    INACTIVE = 'INACTIVE'
+    ACTIVE = 'ACTIVE'
+    PAUSED = 'PAUSED'
+    ERROR = 'ERROR'
+
+class SceneStatus(str, Enum):
+    NOT_MONITORED = 'NOT_MONITORED'
+    MONITORING = 'MONITORING'
+    NEW_ACQUISITION = 'NEW_ACQUISITION'
+    PROCESSING = 'PROCESSING'
+    PROCESSED = 'PROCESSED'
+    SPILL_DETECTED = 'SPILL_DETECTED'
+    ERROR = 'ERROR'
+
+class AcquisitionStatus(str, Enum):
+    AVAILABLE = 'AVAILABLE'
+    INGESTED = 'INGESTED'
+    PROCESSING = 'PROCESSING'
+    PROCESSED = 'PROCESSED'
+    FAILED = 'FAILED'
+    ARCHIVED = 'ARCHIVED'
+
+class ProcessingJobType(str, Enum):
+    SCENE_DISCOVERY = 'SCENE_DISCOVERY'
+    SAR_INGESTION = 'SAR_INGESTION'
+    AI_INFERENCE = 'AI_INFERENCE'
+    AIS_ATTRIBUTION = 'AIS_ATTRIBUTION'
+
+class ProcessingJobStatus(str, Enum):
+    PENDING = 'PENDING'
+    RUNNING = 'RUNNING'
+    COMPLETED = 'COMPLETED'
+    FAILED = 'FAILED'
 
 class GeoPolygon(BaseModel):
     type: str = 'Polygon'
@@ -49,6 +87,8 @@ class JobStatusResponse(BaseModel):
     progress_pct: int
     message: str
     result_id: Optional[str] = None
+    clean_scene: Optional[bool] = False
+    clean_scene_reason: Optional[str] = None
     error: Optional[str] = None
 
 class Centroid(BaseModel):
@@ -57,6 +97,7 @@ class Centroid(BaseModel):
 
 class DetectionResponse(BaseModel):
     id: str
+    incident_id: Optional[str] = None
     product_id: str
     acquisition_timestamp: str
     polarization: str
@@ -67,7 +108,10 @@ class DetectionResponse(BaseModel):
     polygons: Dict[str, Any]  # GeoJSON MultiPolygon
     provenance: ProvenanceType
     thickness_estimate_band: Optional[str] = None
-    shape_metrics: Optional[Dict[str, float]] = None
+    shape_metrics: Optional[Dict[str, Any]] = None
+    spill_age_bucket: Optional[str] = None
+    spatial_priors: Optional[Dict[str, Any]] = None
+    investigative_brief: Optional[str] = None
 
 class VesselPositionPoint(BaseModel):
     lat: float
@@ -98,6 +142,7 @@ class VesselAttribution(BaseModel):
     score_breakdown: ScoreBreakdown
     evidence_summary: str
     provenance: ProvenanceType = ProvenanceType.DEMO_RECONSTRUCTION
+    kinematic_anomalies: Optional[Dict[str, Any]] = None
 
 class AttributionWindow(BaseModel):
     start: str
@@ -105,13 +150,14 @@ class AttributionWindow(BaseModel):
 
 class DetectionVesselsResponse(BaseModel):
     detection_id: str
+    incident_id: Optional[str] = None
     ais_provider: str
     ais_data_timestamp: str
     search_radius_km: float = 50.0
     attribution_window: AttributionWindow
     vessels: List[VesselAttribution]
     is_live: bool = False
-    data_delayed_note: Optional[str] = 'Data delayed: Global Fishing Watch & AIS research feeds reflect standard provider ingestion windows.'
+    data_delayed_note: Optional[str] = 'Data delayed: Research AIS feeds reflect standard provider ingestion windows.'
 
 class DriftStep(BaseModel):
     step_label: str
@@ -161,3 +207,84 @@ class WebhookSubscribeResponse(BaseModel):
     target_url: str
     status: str
     created_at: str
+
+# --- AUTOMATED COASTAL REGIONS & MONITORED SCENES SCHEMAS ---
+
+class CoastalRegion(BaseModel):
+    id: str
+    name: str
+    country_scope: str
+    geometry: Dict[str, Any]  # GeoJSON Polygon / MultiPolygon
+    bbox: List[float]
+    area_sq_km: float
+    enabled: bool = True
+    monitoring_state: MonitoringState = MonitoringState.INACTIVE
+    monitoring_started_at: Optional[str] = None
+    monitoring_stopped_at: Optional[str] = None
+    last_checked_at: Optional[str] = None
+    active_spills_count: int = 0
+    total_scenes_count: int = 0
+    processed_scenes_count: int = 0
+    newest_acquisition_time: Optional[str] = None
+    last_error_message: Optional[str] = None
+
+class MonitoredScene(BaseModel):
+    id: str
+    region_id: str
+    relative_orbit: int
+    orbit_direction: str = 'DESCENDING'
+    footprint: Dict[str, Any]  # GeoJSON Polygon
+    polarization: str = 'VV+VH'
+    acquisition_mode: str = 'IW'
+    status: SceneStatus = SceneStatus.MONITORING
+    last_checked_at: Optional[str] = None
+    latest_acquisition_id: Optional[str] = None
+    last_processed_timestamp: Optional[str] = None
+    latest_detection_id: Optional[str] = None
+
+class SatelliteAcquisition(BaseModel):
+    id: str
+    scene_id: str
+    region_id: str
+    product_id: str
+    sensing_start: str
+    sensing_end: str
+    publication_time: Optional[str] = None
+    footprint: Dict[str, Any]
+    processing_level: str = 'LEVEL-1_GRD'
+    status: AcquisitionStatus = AcquisitionStatus.PROCESSED
+    raw_product_ref: Optional[str] = None
+    retained_until: Optional[str] = None
+    clean_scene: bool = False
+    clean_scene_reason: Optional[str] = None
+    detection_id: Optional[str] = None
+
+class ProcessingJob(BaseModel):
+    id: str
+    region_id: str
+    scene_id: Optional[str] = None
+    acquisition_id: Optional[str] = None
+    job_type: ProcessingJobType
+    status: ProcessingJobStatus
+    progress_pct: int = 0
+    started_at: str
+    completed_at: Optional[str] = None
+    error_message: Optional[str] = None
+
+class RegionMonitoringStatusResponse(BaseModel):
+    region: CoastalRegion
+    scenes: List[MonitoredScene]
+    monitoring_state: MonitoringState
+    active_spills: int
+    last_poll_utc: Optional[str] = None
+    next_poll_utc: Optional[str] = None
+    poll_interval_minutes: int
+    copernicus_timeliness: str
+
+class SceneAcquisitionsResponse(BaseModel):
+    scene_id: str
+    acquisitions: List[SatelliteAcquisition]
+
+class AcquisitionDetectionsResponse(BaseModel):
+    acquisition_id: str
+    detections: List[DetectionResponse]

@@ -8,13 +8,17 @@ from fastapi import APIRouter, HTTPException, BackgroundTasks, WebSocket, WebSoc
 from fastapi.responses import StreamingResponse
 from shapely.geometry import shape, Polygon, MultiPolygon
 
+from ..config import settings
 from ..models.schemas import (
     RegionSelectRequest, RegionSelectResponse,
     ScanRequest, JobStatusResponse, PipelineStage,
     DetectionResponse, DetectionVesselsResponse,
     DriftTrajectoryResponse, HistoricalIncidentSummary,
     ReplayTimelineResponse, WebhookSubscribeRequest,
-    WebhookSubscribeResponse, ProvenanceType, Centroid, AttributionWindow
+    WebhookSubscribeResponse, ProvenanceType, Centroid, AttributionWindow,
+    CoastalRegion, MonitoredScene, SatelliteAcquisition,
+    MonitoringState, SceneStatus, RegionMonitoringStatusResponse,
+    SceneAcquisitionsResponse, AcquisitionDetectionsResponse
 )
 from ..services.copernicus import copernicus_client
 from ..services.ai_pipeline import ai_pipeline
@@ -23,6 +27,9 @@ from ..services.drift_simulator import drift_simulator
 from ..services.historical_store import historical_store
 from ..services.pdf_report import generate_incident_pdf_report
 from ..services.supabase_client import supabase_db
+from ..services.ollama_report import generate_ollama_investigative_report
+from ..services.scene_registry import scene_registry
+from ..services.monitoring_scheduler import monitoring_scheduler
 
 router = APIRouter()
 
@@ -38,6 +45,152 @@ class ApprovalRequest(BaseModel):
     approver_name: str = "Authorized Environmental Approver"
     notes: Optional[str] = None
 
+# ==============================================================================
+# 1. AUTOMATED COASTAL REGIONS & SENTINEL-1 MONITORING ENDPOINTS (v2 UPGRADE)
+# ==============================================================================
+
+@router.get("/coastal-regions", response_model=List[CoastalRegion])
+async def list_coastal_regions():
+    """Lists all predefined coastal monitoring regions with their live monitoring states."""
+    return scene_registry.list_regions()
+
+@router.get("/coastal-regions/{region_id}", response_model=CoastalRegion)
+async def get_coastal_region(region_id: str):
+    """Fetches details for a single coastal monitoring region."""
+    reg = scene_registry.get_region(region_id)
+    if not reg:
+        raise HTTPException(status_code=404, detail="Coastal region not found.")
+    return reg
+
+@router.post("/regions/{region_id}/monitoring/start", response_model=RegionMonitoringStatusResponse)
+async def start_region_monitoring(region_id: str, background_tasks: BackgroundTasks):
+    """
+    Activates Sentinel-1 monitoring for a coastal region.
+    Discovers scenes, processes the latest acquisition, and enters the background polling loop.
+    """
+    reg = scene_registry.set_region_monitoring_state(region_id, MonitoringState.ACTIVE)
+    if not reg:
+        raise HTTPException(status_code=404, detail="Coastal region not found.")
+
+    # Trigger initial scan in background
+    background_tasks.add_task(monitoring_scheduler._process_active_region, reg)
+
+    scenes = scene_registry.get_scenes_for_region(region_id)
+    return RegionMonitoringStatusResponse(
+        region=reg,
+        scenes=scenes,
+        monitoring_state=reg.monitoring_state,
+        active_spills=reg.active_spills_count,
+        last_poll_utc=reg.last_checked_at,
+        poll_interval_minutes=settings.SATELLITE_POLL_INTERVAL_MINUTES,
+        copernicus_timeliness=settings.COPERNICUS_PRODUCT_TIMELINESS
+    )
+
+@router.post("/regions/{region_id}/monitoring/pause", response_model=RegionMonitoringStatusResponse)
+async def pause_region_monitoring(region_id: str):
+    """
+    Pauses Sentinel-1 monitoring for a coastal region.
+    Scheduler skips this region entirely. ZERO Copernicus queries issued.
+    """
+    reg = scene_registry.set_region_monitoring_state(region_id, MonitoringState.PAUSED)
+    if not reg:
+        raise HTTPException(status_code=404, detail="Coastal region not found.")
+
+    scenes = scene_registry.get_scenes_for_region(region_id)
+    return RegionMonitoringStatusResponse(
+        region=reg,
+        scenes=scenes,
+        monitoring_state=reg.monitoring_state,
+        active_spills=reg.active_spills_count,
+        last_poll_utc=reg.last_checked_at,
+        poll_interval_minutes=settings.SATELLITE_POLL_INTERVAL_MINUTES,
+        copernicus_timeliness=settings.COPERNICUS_PRODUCT_TIMELINESS
+    )
+
+@router.post("/regions/{region_id}/monitoring/stop", response_model=RegionMonitoringStatusResponse)
+async def stop_region_monitoring(region_id: str):
+    """
+    Stops Sentinel-1 monitoring for a coastal region (sets INACTIVE).
+    Zero outbound queries issued.
+    """
+    reg = scene_registry.set_region_monitoring_state(region_id, MonitoringState.INACTIVE)
+    if not reg:
+        raise HTTPException(status_code=404, detail="Coastal region not found.")
+
+    scenes = scene_registry.get_scenes_for_region(region_id)
+    return RegionMonitoringStatusResponse(
+        region=reg,
+        scenes=scenes,
+        monitoring_state=reg.monitoring_state,
+        active_spills=reg.active_spills_count,
+        last_poll_utc=reg.last_checked_at,
+        poll_interval_minutes=settings.SATELLITE_POLL_INTERVAL_MINUTES,
+        copernicus_timeliness=settings.COPERNICUS_PRODUCT_TIMELINESS
+    )
+
+@router.get("/regions/{region_id}/monitoring/status", response_model=RegionMonitoringStatusResponse)
+async def get_region_monitoring_status(region_id: str):
+    """Returns real-time regional dashboard metrics, scene statuses, and telemetry."""
+    reg = scene_registry.get_region(region_id)
+    if not reg:
+        raise HTTPException(status_code=404, detail="Coastal region not found.")
+
+    scenes = scene_registry.get_scenes_for_region(region_id)
+    return RegionMonitoringStatusResponse(
+        region=reg,
+        scenes=scenes,
+        monitoring_state=reg.monitoring_state,
+        active_spills=reg.active_spills_count,
+        last_poll_utc=reg.last_checked_at,
+        poll_interval_minutes=settings.SATELLITE_POLL_INTERVAL_MINUTES,
+        copernicus_timeliness=settings.COPERNICUS_PRODUCT_TIMELINESS
+    )
+
+@router.get("/regions/{region_id}/scenes", response_model=List[MonitoredScene])
+async def list_region_scenes(region_id: str):
+    """Returns all monitored Sentinel-1 scene footprints for a region."""
+    return scene_registry.get_scenes_for_region(region_id)
+
+@router.get("/scenes/{scene_id}", response_model=MonitoredScene)
+async def get_scene(scene_id: str):
+    scene = scene_registry.scenes.get(scene_id)
+    if not scene:
+        raise HTTPException(status_code=404, detail="Monitored scene not found.")
+    return scene
+
+@router.get("/scenes/{scene_id}/acquisitions", response_model=SceneAcquisitionsResponse)
+async def list_scene_acquisitions(scene_id: str):
+    acqs = scene_registry.get_acquisitions_for_scene(scene_id)
+    return SceneAcquisitionsResponse(scene_id=scene_id, acquisitions=acqs)
+
+@router.get("/acquisitions/{acquisition_id}", response_model=SatelliteAcquisition)
+async def get_acquisition(acquisition_id: str):
+    acq = scene_registry.acquisitions.get(acquisition_id)
+    if not acq:
+        raise HTTPException(status_code=404, detail="Acquisition not found.")
+    return acq
+
+@router.get("/acquisitions/{acquisition_id}/detections", response_model=AcquisitionDetectionsResponse)
+async def get_acquisition_detections(acquisition_id: str):
+    acq = scene_registry.acquisitions.get(acquisition_id)
+    if not acq:
+        raise HTTPException(status_code=404, detail="Acquisition not found.")
+
+    dets = []
+    if acq.detection_id and acq.detection_id in detections_store:
+        dets.append(DetectionResponse(**detections_store[acq.detection_id]))
+    return AcquisitionDetectionsResponse(acquisition_id=acquisition_id, detections=dets)
+
+@router.post("/monitoring/check")
+async def trigger_monitoring_poll():
+    """Manual trigger to execute 1 poll cycle immediately across all ACTIVE regions."""
+    res = await monitoring_scheduler.poll_active_regions()
+    return {"status": "ok", "poll_summary": res}
+
+# ==============================================================================
+# 2. MANUAL REGION SELECTION & ANALYSIS ENDPOINTS (PRESERVED COMPATIBILITY)
+# ==============================================================================
+
 @router.post("/regions/select", response_model=RegionSelectResponse)
 async def select_region(req: RegionSelectRequest):
     try:
@@ -52,17 +205,15 @@ async def select_region(req: RegionSelectRequest):
 
     min_lon, min_lat, max_lon, max_lat = geom.bounds
     
-    # Accurate spherical geodesic approximation: Area = deg_lon * deg_lat * 111.32^2 * cos(avg_lat_rad)
     deg_to_km = 111.32
     avg_lat = (min_lat + max_lat) / 2.0
     cos_lat = max(0.01, abs(math.cos(math.radians(avg_lat))))
     area_km2 = geom.area * (deg_to_km ** 2) * cos_lat
     
-    # Generous limit allowing large marine basins up to 500,000 km²
-    if area_km2 > 500000.0:
+    if area_km2 > settings.MAX_REGION_AREA_KM2:
         raise HTTPException(
             status_code=400,
-            detail=f"Selected region area ({area_km2:,.1f} km²) exceeds maximum allowed scan threshold of 500,000 km². Please draw a smaller bounding box."
+            detail=f"Selected region area ({area_km2:,.1f} km²) exceeds maximum allowed scan threshold of {settings.MAX_REGION_AREA_KM2:,.0f} km²."
         )
 
     region_id = f"reg-{uuid.uuid4().hex[:10]}"
@@ -107,28 +258,25 @@ async def run_pipeline_task(job_id: str, region_id: str, geometry: Dict[str, Any
         # 1. SAR ACQUISITION
         jobs_store[job_id].update({"stage": PipelineStage.SEARCHING_COPERNICUS, "progress_pct": 15, "message": "Searching Copernicus Data Space for Sentinel-1 C-SAR..."})
         await notify_ws(job_id, "searching_copernicus", 15, "Searching Copernicus Data Space for Sentinel-1 C-SAR...")
-        await asyncio.sleep(0.7)
+        await asyncio.sleep(0.6)
         scene = await copernicus_client.search_newest_sentinel1_scene(bbox)
 
         # 2. PREPROCESSING
         jobs_store[job_id].update({"stage": PipelineStage.PREPROCESSING, "progress_pct": 35, "message": "Radiometric calibration & 512x512 SAR patch extraction..."})
         await notify_ws(job_id, "preprocessing", 35, "Radiometric calibration & 512x512 SAR patch extraction...")
-        await asyncio.sleep(0.6)
+        await asyncio.sleep(0.5)
 
         # 3. SEGMENTATION & AI INFERENCE
         jobs_store[job_id].update({"stage": PipelineStage.SEGMENTING, "progress_pct": 55, "message": "Executing U-Net EfficientNet-B4 segmentation inference..."})
         await notify_ws(job_id, "segmenting", 55, "Executing U-Net EfficientNet-B4 segmentation inference...")
-        await asyncio.sleep(0.6)
+        await asyncio.sleep(0.5)
         spill_data = ai_pipeline.process_scene_geometry(geometry, bbox)
 
-        # 4. FILTERING & VALIDATION
-        jobs_store[job_id].update({"stage": PipelineStage.FILTERING, "progress_pct": 70, "message": "ResNet-50 look-alike rejection & morphology cleaning..."})
-        await notify_ws(job_id, "filtering", 70, "ResNet-50 look-alike rejection & morphology cleaning...")
-        await asyncio.sleep(0.5)
+        # 4. FILTERING & LOOK-ALIKE DISCRIMINATION
+        jobs_store[job_id].update({"stage": PipelineStage.FILTERING, "progress_pct": 70, "message": "ResNet-50 look-alike rejection & spatial prior weighting..."})
+        await notify_ws(job_id, "filtering", 70, "ResNet-50 look-alike rejection & spatial prior weighting...")
+        await asyncio.sleep(0.4)
 
-        # ----------------------------------------------------------------
-        # BRANCH: No Spill Detected → complete cleanly with no result_id
-        # ----------------------------------------------------------------
         if not spill_data.get("spill_detected", True):
             reason_msg = spill_data.get("clean_scene_reason", "No dark anomaly found.")
             jobs_store[job_id].update({
@@ -142,9 +290,6 @@ async def run_pipeline_task(job_id: str, region_id: str, geometry: Dict[str, Any
             await notify_ws(job_id, "complete", 100, "Scene analysed — No oil spill anomaly detected. SAR scene is clean.", clean_scene_reason=reason_msg)
             return
 
-        # ----------------------------------------------------------------
-        # BRANCH: Spill Detected → full pipeline, persist to Supabase
-        # ----------------------------------------------------------------
         incident_uuid = str(uuid.uuid4())
         detection_id = f"det-{uuid.uuid4().hex[:10]}"
         
@@ -161,14 +306,15 @@ async def run_pipeline_task(job_id: str, region_id: str, geometry: Dict[str, Any
             "polygons": spill_data["polygons"],
             "provenance": ProvenanceType.DEMO_RECONSTRUCTION,
             "thickness_estimate_band": "Metallic sheen (0.005 - 0.05 μm)" if spill_data["area_km2"] < 15 else "True color (> 100 μm)",
-            "shape_metrics": spill_data["shape_metrics"]
+            "shape_metrics": spill_data["shape_metrics"],
+            "spill_age_bucket": spill_data.get("spill_age_bucket", "<6h (Fresh Discharge)"),
+            "spatial_priors": spill_data.get("spatial_priors", {}),
+            "investigative_brief": None
         }
         detections_store[detection_id] = detection_obj
         detections_store[incident_uuid] = detection_obj
 
-        # -------------------------------------------------------------
-        # PROMPT 01 -> SUPABASE: Insert into incidents & audit_log
-        # -------------------------------------------------------------
+        # Prompt 01 -> Supabase
         severity_level = "critical" if spill_data["area_km2"] > 20 else ("high" if spill_data["area_km2"] > 5 else "medium")
         incident_db_payload = {
             "incident_id": incident_uuid,
@@ -184,9 +330,6 @@ async def run_pipeline_task(job_id: str, region_id: str, geometry: Dict[str, Any
             "polarization": scene["polarization"],
             "estimated_thickness_band": detection_obj["thickness_estimate_band"],
             "severity": severity_level,
-            "look_alike_risk_factors": ["low_wind_shadow_analyzed", "natural_biogenic_film_ruled_out"],
-            "recommended_action": f"Deploy containment boom and notify coastal state monitoring station near {spill_data['centroid']['lat']:.3f}°N, {spill_data['centroid']['lon']:.3f}°E",
-            "analyst_notes": f"SAR dark patch detected with {spill_data['confidence']*100:.1f}% confidence over {spill_data['area_km2']:.2f} km².",
             "status": "new"
         }
         await supabase_db.insert_incident(incident_db_payload)
@@ -199,16 +342,29 @@ async def run_pipeline_task(job_id: str, region_id: str, geometry: Dict[str, Any
             model_used="SAR Vision U-Net / EfficientNet-B4 Ensemble"
         )
 
-        # 5. AIS CORRELATION & ATTRIBUTION
-        jobs_store[job_id].update({"stage": PipelineStage.QUERYING_AIS, "progress_pct": 85, "message": "Querying AIS stream for 50km radius and attribution window..."})
-        await notify_ws(job_id, "querying_ais", 85, "Querying AIS stream for 50km radius and attribution window...")
-        await asyncio.sleep(0.5)
+        # 5. DYNAMIC AIS SEARCH & ATTRIBUTION
+        dyn_params = spill_data.get("dynamic_search_params", {
+            "search_radius_km": 50.0,
+            "start_hours_back": 6.0,
+            "end_hours_forward": 1.0,
+            "attribution_window_label": "T-6h to T+1h"
+        })
+
+        jobs_store[job_id].update({
+            "stage": PipelineStage.QUERYING_AIS,
+            "progress_pct": 85,
+            "message": f"Querying AIS stream ({dyn_params['attribution_window_label']}, {dyn_params['search_radius_km']:.0f}km radius)..."
+        })
+        await notify_ws(job_id, "querying_ais", 85, f"Querying AIS stream for {dyn_params['search_radius_km']:.0f}km radius...")
+        await asyncio.sleep(0.4)
         
         vessels = ais_adapter.query_vessels(
             centroid_lat=spill_data["centroid"]["lat"],
             centroid_lon=spill_data["centroid"]["lon"],
             overpass_time_str=scene["acquisition_timestamp"],
-            search_radius_km=50.0
+            search_radius_km=dyn_params["search_radius_km"],
+            start_hours_back=dyn_params["start_hours_back"],
+            end_hours_forward=dyn_params["end_hours_forward"]
         )
         
         vessel_dicts = [v.model_dump() for v in vessels]
@@ -217,10 +373,10 @@ async def run_pipeline_task(job_id: str, region_id: str, geometry: Dict[str, Any
             "incident_id": incident_uuid,
             "ais_provider": ais_adapter.provider_name,
             "ais_data_timestamp": scene["acquisition_timestamp"],
-            "search_radius_km": 50.0,
+            "search_radius_km": dyn_params["search_radius_km"],
             "attribution_window": {
-                "start": "T-6h",
-                "end": "T+1h"
+                "start": f"T-{int(dyn_params['start_hours_back'])}h",
+                "end": f"T+{int(dyn_params['end_hours_forward'])}h"
             },
             "vessels": vessel_dicts,
             "is_live": False,
@@ -228,88 +384,24 @@ async def run_pipeline_task(job_id: str, region_id: str, geometry: Dict[str, Any
         }
         vessels_store[incident_uuid] = vessels_store[detection_id]
 
-        # -------------------------------------------------------------
-        # PROMPT 02 -> SUPABASE: Insert into vessel_attributions & audit_log
-        # -------------------------------------------------------------
-        await supabase_db.insert_vessel_attributions(incident_uuid, vessel_dicts)
-        await supabase_db.insert_audit_log(
-            incident_id=incident_uuid,
-            step="attribution",
-            prompt_name="Prompt 02: Vessel Attribution Analysis",
-            raw_prompt_input={"centroid": spill_data["centroid"], "overpass_time": scene["acquisition_timestamp"], "radius_km": 50.0},
-            raw_api_response={"vessels_evaluated": len(vessel_dicts), "top_vessel": vessel_dicts[0] if vessel_dicts else None},
-            model_used="6-Factor Multi-Criteria Attribution Engine"
-        )
+        # 6. LLM INVESTIGATIVE REPORT GENERATION (Ollama / Local Synthesizer)
+        jobs_store[job_id].update({
+            "stage": PipelineStage.GENERATING_REPORT,
+            "progress_pct": 92,
+            "message": "Generating IMO MARPOL Forensic Narrative via local LLM..."
+        })
+        await notify_ws(job_id, "generating_report", 92, "Generating IMO MARPOL Forensic Narrative...")
+        await asyncio.sleep(0.3)
 
-        # -------------------------------------------------------------
-        # PROMPT 03 -> SUPABASE: Insert into alerts with dispatched=false
-        # -------------------------------------------------------------
-        top_vessel_name = vessel_dicts[0]["name"] if vessel_dicts else "Unknown Vessel"
-        top_vessel_mmsi = vessel_dicts[0]["mmsi"] if vessel_dicts else "N/A"
-        lat_dms = f"{abs(spill_data['centroid']['lat']):.2f}°{'S' if spill_data['centroid']['lat'] < 0 else 'N'}"
-        lon_dms = f"{abs(spill_data['centroid']['lon']):.2f}°{'W' if spill_data['centroid']['lon'] < 0 else 'E'}"
-        
-        alert_payload = {
-            "incident_id": incident_uuid,
-            "alert_title": f"{severity_level.upper()} HAZARD: {spill_data['area_km2']:.1f} km² Oil Slick Detected at {lat_dms}, {lon_dms}",
-            "priority": severity_level,
-            "alert_body": f"Sentinel-1 SAR radar identified a {spill_data['area_km2']:.2f} km² dark slick with {spill_data['confidence']*100:.1f}% confidence. Top suspect vessel: {top_vessel_name} (MMSI: {top_vessel_mmsi}).",
-            "coordinates_dms": f"{lat_dms}, {lon_dms}",
-            "affected_area_km2": spill_data["area_km2"],
-            "top_suspect_vessel": f"{top_vessel_name} (MMSI: {top_vessel_mmsi})",
-            "recommended_immediate_actions": [
-                "Deploy coastal containment booms",
-                "Task aerial or patrol vessel for visual and chemical verification",
-                "Broadcast NAVAREA maritime navigational safety warning"
-            ],
-            "notify_agencies": [
-                "National Coast Guard Operations Center",
-                "Regional Marine Pollution Emergency Center (REMPEC)",
-                "Port State Control Inspection Directorate"
-            ]
+        report_payload = {
+            "detection": detection_obj,
+            "top_vessel": vessel_dicts[0] if vessel_dicts else {},
+            "spatial_priors": spill_data.get("spatial_priors", {})
         }
-        await supabase_db.insert_alert(alert_payload)
-        await supabase_db.insert_audit_log(
-            incident_id=incident_uuid,
-            step="alert",
-            prompt_name="Prompt 03: Immediate Marine Hazard Alert",
-            raw_prompt_input={"incident_id": incident_uuid, "severity": severity_level},
-            raw_api_response=alert_payload,
-            model_used="Operational Alert Generator / Claude 3.5 Sonnet"
-        )
-
-        # -------------------------------------------------------------
-        # PROMPT 05 -> SUPABASE: Insert into marpol_reports with submitted=false
-        # -------------------------------------------------------------
-        marpol_payload = {
-            "incident_id": incident_uuid,
-            "report_content": {
-                "dossier_title": "IMO MARPOL Annex I Discharge Investigation Dossier",
-                "incident_ref": incident_uuid,
-                "satellite_telemetry": {
-                    "sensor": "Sentinel-1 C-SAR",
-                    "product_id": scene["product_id"],
-                    "acquisition_utc": scene["acquisition_timestamp"],
-                    "spill_area_sq_km": spill_data["area_km2"],
-                    "radar_confidence": spill_data["confidence"]
-                },
-                "suspect_attribution": vessel_dicts[:3] if vessel_dicts else [],
-                "enforcement_recommendation": "Initiate Flag State & Port State Control inspection under MARPOL Article 4/6."
-            }
-        }
-        await supabase_db.insert_marpol_report(marpol_payload)
-        await supabase_db.insert_audit_log(
-            incident_id=incident_uuid,
-            step="report",
-            prompt_name="Prompt 05: IMO MARPOL Annex I Investigation Dossier",
-            raw_prompt_input={"incident_id": incident_uuid},
-            raw_api_response=marpol_payload["report_content"],
-            model_used="IMO Legal Dossier Synthesizer / Claude 3.5 Sonnet"
-        )
-
-        jobs_store[job_id].update({"stage": PipelineStage.SCORING, "progress_pct": 95, "message": "Computing explainable multi-factor attribution scores..."})
-        await notify_ws(job_id, "scoring", 95, "Computing explainable multi-factor attribution scores...")
-        await asyncio.sleep(0.4)
+        investigative_brief = await generate_ollama_investigative_report(report_payload)
+        detection_obj["investigative_brief"] = investigative_brief
+        detections_store[detection_id]["investigative_brief"] = investigative_brief
+        detections_store[incident_uuid]["investigative_brief"] = investigative_brief
 
         jobs_store[job_id].update({
             "stage": PipelineStage.COMPLETE,
@@ -335,17 +427,15 @@ async def start_scan(req: ScanRequest, background_tasks: BackgroundTasks):
     geom = req.geometry
     if not geom and req.region_id in regions_store:
         geom = regions_store[req.region_id]["geometry"]
-    elif not geom:
-        geom = {
-            "type": "Polygon",
-            "coordinates": [[[57.7, -20.5], [57.8, -20.5], [57.8, -20.4], [57.7, -20.4], [57.7, -20.5]]]
-        }
+        
+    if not geom:
+        raise HTTPException(status_code=400, detail="Missing region geometry for scan.")
 
     jobs_store[job_id] = {
         "job_id": job_id,
         "stage": PipelineStage.QUEUED,
         "progress_pct": 0,
-        "message": "Job queued for satellite acquisition and segmentation.",
+        "message": "Scan job queued...",
         "result_id": None,
         "error": None
     }
@@ -356,39 +446,45 @@ async def start_scan(req: ScanRequest, background_tasks: BackgroundTasks):
         job_id=job_id,
         stage=PipelineStage.QUEUED,
         progress_pct=0,
-        message="Job queued for satellite acquisition and segmentation."
+        message="Scan job queued...",
+        result_id=None
     )
 
 @router.get("/jobs/{job_id}", response_model=JobStatusResponse)
 async def get_job_status(job_id: str):
-    if job_id not in jobs_store:
-        raise HTTPException(status_code=404, detail="Job not found")
-    data = jobs_store[job_id]
-    return JobStatusResponse(**data)
+    job = jobs_store.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found.")
+    return JobStatusResponse(**job)
 
 @router.get("/detections/{detection_id}", response_model=DetectionResponse)
 async def get_detection(detection_id: str):
-    if detection_id not in detections_store:
-        raise HTTPException(status_code=404, detail="Detection not found")
-    return DetectionResponse(**detections_store[detection_id])
+    det = detections_store.get(detection_id)
+    if not det:
+        raise HTTPException(status_code=404, detail="Detection not found.")
+    return DetectionResponse(**det)
 
 @router.get("/detections/{detection_id}/vessels", response_model=DetectionVesselsResponse)
 async def get_detection_vessels(detection_id: str):
-    if detection_id not in vessels_store:
-        raise HTTPException(status_code=404, detail="Vessel attribution data not found for detection")
-    return DetectionVesselsResponse(**vessels_store[detection_id])
+    v = vessels_store.get(detection_id)
+    if not v:
+        raise HTTPException(status_code=404, detail="Vessels not found for detection.")
+    return DetectionVesselsResponse(**v)
 
-@router.post("/detections/{detection_id}/drift", response_model=DriftTrajectoryResponse)
-async def compute_drift_trajectory(detection_id: str):
-    if detection_id not in detections_store:
-        raise HTTPException(status_code=404, detail="Detection not found")
-    det = detections_store[detection_id]
-    return drift_simulator.simulate_back_trajectory(
+# Support both GET and POST on drift endpoint
+@router.api_route("/detections/{detection_id}/drift", methods=["GET", "POST"], response_model=DriftTrajectoryResponse)
+async def get_drift_trajectory(detection_id: str):
+    det = detections_store.get(detection_id)
+    if not det:
+        raise HTTPException(status_code=404, detail="Detection not found for drift calculation.")
+
+    traj = drift_simulator.simulate_back_trajectory(
         centroid_lat=det["centroid"]["lat"],
         centroid_lon=det["centroid"]["lon"],
-        detection_id=detection_id,
-        base_timestamp_str=det["acquisition_timestamp"]
+        hours_back=6,
+        spill_polygon=det["polygons"]
     )
+    return traj
 
 @router.get("/incidents/historical", response_model=List[HistoricalIncidentSummary])
 async def list_historical_incidents():
@@ -398,92 +494,95 @@ async def list_historical_incidents():
 async def get_historical_replay(incident_id: str):
     timeline = historical_store.get_replay_timeline(incident_id)
     if not timeline:
-        raise HTTPException(status_code=404, detail="Historical incident not found")
+        raise HTTPException(status_code=404, detail="Historical incident not found.")
     return timeline
 
-@router.get("/incidents/{incident_id}/report.pdf")
+@router.get("/reports/{incident_id}/pdf")
 async def export_incident_pdf(incident_id: str):
-    if incident_id in detections_store:
-        det = detections_store[incident_id]
-        v_data = vessels_store.get(incident_id, {}).get("vessels", [])
-        pdf_stream = generate_incident_pdf_report(
-            incident_id=incident_id,
-            incident_name=f"Sentinel-1 SAR Detection ({det['product_id'][:24]}...)",
-            location=f"{det['centroid']['lat']:.4f}°N, {det['centroid']['lon']:.4f}°E",
-            date_str=det["acquisition_timestamp"],
-            area_km2=det["area_km2"],
-            confidence=det["confidence"],
-            vessels=v_data,
-            provenance_str="Demo Satellite Reconstruction"
-        )
-    elif incident_id in historical_store.incidents:
-        inc = historical_store.incidents[incident_id]
-        v_mock = [{
-            "name": inc["vessel_name"],
-            "mmsi": "999000123",
-            "flag": "Panama",
-            "vessel_type": "Tanker / Bulk Carrier",
-            "distance_to_spill_km": 0.0,
-            "ais_gap_severity": 3,
-            "attribution_score": 92.4,
-            "evidence_summary": f"Documented source vessel for {inc['name']}."
-        }]
-        pdf_stream = generate_incident_pdf_report(
-            incident_id=incident_id,
-            incident_name=inc["name"],
-            location=inc["location"],
-            date_str=inc["date"],
-            area_km2=inc["area_km2"],
-            confidence=0.99,
-            vessels=v_mock,
-            provenance_str="Documented Fact / Historical Archive"
-        )
-    else:
-        raise HTTPException(status_code=404, detail="Incident or Detection ID not found for PDF export")
+    det = detections_store.get(incident_id)
+    vessels_data = vessels_store.get(incident_id, {}).get("vessels", [])
 
+    if not det:
+        inc = historical_store.incidents.get(incident_id)
+        if inc:
+            pdf_stream = generate_incident_pdf_report(
+                incident_id=inc["incident_id"],
+                incident_name=inc["name"],
+                location=inc["location"],
+                date_str=inc["date"],
+                area_km2=inc["area_km2"],
+                confidence=1.0,
+                vessels=[{
+                    "name": inc["vessel_name"],
+                    "vessel_type": "Documented Casualty Vessel",
+                    "flag": "Recorded Flag",
+                    "mmsi": "Documented",
+                    "attribution_score": 100.0,
+                    "distance_to_spill_km": 0.0,
+                    "evidence_summary": inc["summary"]
+                }],
+                provenance_str="Documented Historical Fact",
+                investigative_brief=inc.get("summary", ""),
+                spill_age_bucket="Documented Historical Casualty",
+                spatial_priors={"dist_to_coast_km": 2.5, "dist_to_shipping_lane_km": 8.0, "nearest_shipping_lane": "Coastal Fairway"}
+            )
+            return StreamingResponse(
+                pdf_stream,
+                media_type="application/pdf",
+                headers={"Content-Disposition": f"inline; filename=MARPOL_Dossier_{incident_id}.pdf"}
+            )
+        raise HTTPException(status_code=404, detail="Incident record not found for PDF export.")
+
+    priors = det.get("spatial_priors", {})
+    pdf_stream = generate_incident_pdf_report(
+        incident_id=det["incident_id"],
+        incident_name=f"SAR Spill Detection #{det['id'][-6:]}",
+        location=f"{det['centroid']['lat']:.4f}°, {det['centroid']['lon']:.4f}°",
+        date_str=det["acquisition_timestamp"],
+        area_km2=det["area_km2"],
+        confidence=det["confidence"],
+        vessels=vessels_data,
+        provenance_str="Live Sentinel-1 SAR & AIS Stream",
+        investigative_brief=det.get("investigative_brief"),
+        spill_age_bucket=det.get("spill_age_bucket", "<6h (Fresh Discharge)"),
+        spatial_priors=priors
+    )
     return StreamingResponse(
         pdf_stream,
         media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="incident_dossier_{incident_id}.pdf"'}
+        headers={"Content-Disposition": f"inline; filename=MARPOL_Dossier_{incident_id}.pdf"}
     )
 
-# ------------------------------------------------------------------------------
-# SUPABASE APPROVALS & AUDIT ENDPOINTS
-# ------------------------------------------------------------------------------
+# --- APPROVER & AUDIT LOG WORKFLOWS ---
+
 @router.get("/approvals/pending")
 async def get_pending_approvals():
-    """Fetch pending alerts and MARPOL reports requiring human approver action."""
-    return await supabase_db.get_pending_approvals()
+    result = await supabase_db.get_pending_approvals()
+    return {"pending_alerts": result.get("pending_alerts", []), "pending_reports": result.get("pending_reports", [])}
 
 @router.post("/alerts/{alert_id}/approve")
-async def approve_alert(alert_id: str, req: ApprovalRequest):
-    """Approver action to sign and dispatch operational alert."""
-    result = await supabase_db.approve_alert(alert_id, req.approver_name)
-    if not result:
-        raise HTTPException(status_code=404, detail="Alert not found")
-    return {"status": "dispatched", "alert": result}
+async def approve_alert_endpoint(alert_id: str, req: ApprovalRequest):
+    res = await supabase_db.approve_alert(alert_id, req.approver_name)
+    return {"status": "dispatched", "result": res}
 
 @router.post("/reports/{report_id}/submit")
 async def submit_marpol_report(report_id: str, req: ApprovalRequest):
-    """Approver action to submit MARPOL Annex I investigation dossier."""
-    result = await supabase_db.submit_marpol_report(report_id, req.approver_name)
-    if not result:
-        raise HTTPException(status_code=404, detail="MARPOL report not found")
-    return {"status": "submitted", "report": result}
+    res = await supabase_db.submit_marpol_report(report_id, req.approver_name)
+    return {"status": "submitted_to_imo", "result": res}
 
 @router.get("/incidents/{incident_id}/audit")
 async def get_incident_audit(incident_id: str):
-    """Retrieve full audit log trail for an incident."""
-    return await supabase_db.get_audit_trail(incident_id)
+    logs = await supabase_db.get_audit_trail(incident_id)
+    return {"incident_id": incident_id, "logs": logs}
 
 @router.post("/webhooks/subscribe", response_model=WebhookSubscribeResponse)
 async def subscribe_webhook(req: WebhookSubscribeRequest):
     sub_id = f"sub-{uuid.uuid4().hex[:8]}"
-    obj = {
+    sub_obj = {
         "subscription_id": sub_id,
         "target_url": req.target_url,
         "status": "active",
         "created_at": datetime.now(timezone.utc).isoformat()
     }
-    webhooks_store.append(obj)
-    return WebhookSubscribeResponse(**obj)
+    webhooks_store.append(sub_obj)
+    return WebhookSubscribeResponse(**sub_obj)

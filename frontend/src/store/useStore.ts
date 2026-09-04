@@ -6,13 +6,32 @@ import {
   ReplayTimelineResponse,
   PipelineStage,
   UserRole,
+  CoastalRegion,
+  MonitoredScene,
 } from '../types';
 
 interface AppState {
   currentMode: 'live' | 'historical';
   setCurrentMode: (mode: 'live' | 'historical') => void;
 
-  // Supabase Auth & Role Management (analyst, approver, viewer)
+  // Automated Coastal Monitoring State
+  coastalRegions: CoastalRegion[];
+  setCoastalRegions: (regions: CoastalRegion[]) => void;
+  selectedCoastalRegionId: string | null;
+  setSelectedCoastalRegionId: (id: string | null) => void;
+  monitoredScenes: MonitoredScene[];
+  setMonitoredScenes: (scenes: MonitoredScene[]) => void;
+
+  // Continuous Scanning State
+  scanningStatus: 'idle' | 'scanning' | 'stopped';
+  setScanningStatus: (status: 'idle' | 'scanning' | 'stopped') => void;
+  detectionFeed: Detection[];
+  setDetectionFeed: (feed: Detection[]) => void;
+  addDetectionToFeed: (detection: Detection) => void;
+  scanningCycleCount: number;
+  setScanningCycleCount: (count: number) => void;
+
+  // Supabase Auth & Role Management
   userRole: UserRole;
   setUserRole: (role: UserRole) => void;
 
@@ -44,6 +63,7 @@ interface AppState {
   setPipelineStatus: (stage: PipelineStage | null, progress: number, message: string) => void;
 
   activeDetection: Detection | null;
+  detectionDetailToken: number;
   setActiveDetection: (det: Detection | null) => void;
 
   activeVessels: VesselAttribution[];
@@ -89,7 +109,24 @@ export const useStore = create<AppState>((set) => ({
   currentMode: 'live',
   setCurrentMode: (mode) => set({ currentMode: mode }),
 
-  userRole: 'approver', // Default to approver so user has immediate access to testing all workflows
+  coastalRegions: [],
+  setCoastalRegions: (regions) => set({ coastalRegions: regions }),
+  selectedCoastalRegionId: 'reg-mauritius-01',
+  setSelectedCoastalRegionId: (id) => set({ selectedCoastalRegionId: id }),
+  monitoredScenes: [],
+  setMonitoredScenes: (scenes) => set({ monitoredScenes: scenes }),
+
+  scanningStatus: 'idle',
+  setScanningStatus: (status) => set({ scanningStatus: status }),
+  detectionFeed: [],
+  setDetectionFeed: (feed) => set({ detectionFeed: feed }),
+  addDetectionToFeed: (detection) => set((state) => ({
+    detectionFeed: [detection, ...state.detectionFeed],
+  })),
+  scanningCycleCount: 0,
+  setScanningCycleCount: (count) => set({ scanningCycleCount: count }),
+
+  userRole: 'approver',
   setUserRole: (role) => set({ userRole: role }),
 
   isApprovalModalOpen: false,
@@ -115,7 +152,12 @@ export const useStore = create<AppState>((set) => ({
     set({ pipelineStage: stage, pipelineProgress: progress, pipelineMessage: message }),
 
   activeDetection: null,
-  setActiveDetection: (det) => set({ activeDetection: det }),
+  detectionDetailToken: 0,
+  setActiveDetection: (det) => set((state) => ({
+    activeDetection: det,
+    isEvidenceOpen: det ? true : state.isEvidenceOpen,
+    detectionDetailToken: state.detectionDetailToken + 1,
+  })),
 
   activeVessels: [],
   vesselMetadata: null,
@@ -161,5 +203,8 @@ export const useStore = create<AppState>((set) => ({
       isEvidenceOpen: false,
       selectedVesselMmsi: null,
       cleanSceneResult: null,
+      detectionFeed: [],
+      scanningStatus: 'idle',
+      scanningCycleCount: 0,
     }),
 }));

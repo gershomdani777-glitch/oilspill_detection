@@ -6,7 +6,7 @@ import { SpillLayer } from './SpillLayer';
 import { VesselLayer } from './VesselLayer';
 import { DriftLayer } from './DriftLayer';
 import { MapLegend } from './MapLegend';
-import { MapDrawToolbar } from './MapDrawToolbar';
+import { CoastalRegionDropdown } from '../ui/CoastalRegionDropdown';
 import { api } from '../../services/api';
 
 const STADIA_API_KEY =
@@ -184,8 +184,15 @@ const DrawController: React.FC<{
 // Auto-pan / fly-to when region or detection changes
 const MapViewController: React.FC = () => {
   const map = useMap();
-  const { currentMode, selectedRegion, activeDetection, replayTimeline, currentReplayStepIndex } =
-    useStore();
+  const {
+    currentMode,
+    selectedRegion,
+    activeDetection,
+    replayTimeline,
+    currentReplayStepIndex,
+    selectedCoastalRegionId,
+    coastalRegions,
+  } = useStore();
 
   useEffect(() => {
     if (currentMode === 'live') {
@@ -193,6 +200,19 @@ const MapViewController: React.FC = () => {
         map.flyTo([activeDetection.centroid.lat, activeDetection.centroid.lon], 11, {
           duration: 1.5,
         });
+      } else if (selectedCoastalRegionId) {
+        // Fly to selected coastal region bbox
+        const region = coastalRegions.find((r) => r.id === selectedCoastalRegionId);
+        if (region?.bbox) {
+          const [min_lon, min_lat, max_lon, max_lat] = region.bbox;
+          map.fitBounds(
+            [
+              [min_lat, min_lon],
+              [max_lat, max_lon],
+            ],
+            { padding: [50, 50] }
+          );
+        }
       } else if (selectedRegion?.bbox) {
         const [min_lon, min_lat, max_lon, max_lat] = selectedRegion.bbox;
         map.fitBounds(
@@ -226,6 +246,7 @@ export const MainMap: React.FC = () => {
     showDrift,
     replayTimeline,
     currentReplayStepIndex,
+    detectionFeed,
   } = useStore();
 
   const [activeLayerId, setActiveLayerId] = useState<string>('stadia_dark');
@@ -284,7 +305,7 @@ export const MainMap: React.FC = () => {
         {/* Live scan data layers */}
         {currentMode === 'live' && (
           <>
-            <SpillLayer detection={activeDetection} />
+            <SpillLayer detection={activeDetection || detectionFeed[0] || null} />
             <VesselLayer vessels={activeVessels} />
             <DriftLayer driftTrajectory={driftTrajectory} visible={showDrift} />
           </>
@@ -316,8 +337,8 @@ export const MainMap: React.FC = () => {
         ))}
       </div>
 
-      {/* Drawing toolbar (left panel) and legend */}
-      <MapDrawToolbar isDrawingMode={isDrawingMode} setIsDrawingMode={setIsDrawingMode} />
+      {/* Coastal region selector (left panel) and legend */}
+      <CoastalRegionDropdown />
       <MapLegend />
     </div>
   );

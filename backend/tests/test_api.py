@@ -1,4 +1,4 @@
-﻿import pytest
+import pytest
 from fastapi.testclient import TestClient
 from app.main import app
 
@@ -50,7 +50,8 @@ def test_historical_replay():
     assert len(timeline["timeline"]) >= 6
 
 def test_historical_pdf_report():
-    res = client.get("/api/v1/incidents/inc-wakashio-2020/report.pdf")
+    res = client.get("/api/v1/reports/inc-wakashio-2020/pdf")
     assert res.status_code == 200
     assert res.headers["content-type"] == "application/pdf"
     assert len(res.content) > 1000
+

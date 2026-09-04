@@ -1,12 +1,23 @@
-﻿from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from contextlib import asynccontextmanager
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from .config import settings
 from .api.endpoints import router, active_connections
+from .services.monitoring_scheduler import monitoring_scheduler
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: start background monitoring loop
+    await monitoring_scheduler.start()
+    yield
+    # Shutdown: stop background monitoring loop
+    await monitoring_scheduler.stop()
 
 app = FastAPI(
     title="Maritime Oil Spill Detection API",
-    description="Interactive satellite SAR segmentation + AIS correlation + explainable attribution intelligence",
-    version="1.0.0"
+    description="Automated Sentinel-1 C-SAR coastal monitoring + U-Net/EfficientNet-B4 segmentation + AIS attribution + 3D Globe intelligence",
+    version="2.0.0",
+    lifespan=lifespan
 )
 
 app.add_middleware(
@@ -17,7 +28,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Mount router under both /api/v1 and /api for full endpoint compatibility
 app.include_router(router, prefix=settings.API_V1_STR)
+app.include_router(router, prefix="/api")
 
 @app.websocket("/ws/jobs/{job_id}")
 async def websocket_job_status(websocket: WebSocket, job_id: str):
@@ -34,4 +47,10 @@ async def websocket_job_status(websocket: WebSocket, job_id: str):
 
 @app.get("/health")
 async def health_check():
-    return {"status": "ok", "service": "maritime-oilspill-detection-api"}
+    return {
+        "status": "ok",
+        "service": "maritime-oilspill-detection-api",
+        "version": "2.0.0",
+        "poll_interval_minutes": settings.SATELLITE_POLL_INTERVAL_MINUTES,
+        "copernicus_timeliness": settings.COPERNICUS_PRODUCT_TIMELINESS
+    }
