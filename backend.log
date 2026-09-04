@@ -8886,3 +8886,111 @@ INFO:     127.0.0.1:61059 - "GET /api/v1/approvals/pending HTTP/1.1" 200 OK
 INFO:     127.0.0.1:49285 - "GET /api/v1/approvals/pending HTTP/1.1" 200 OK
 INFO:     127.0.0.1:56524 - "GET /api/v1/approvals/pending HTTP/1.1" 200 OK
 INFO:     127.0.0.1:61424 - "GET /api/v1/approvals/pending HTTP/1.1" 200 OK
+Error fetching pending approvals from Supabase: 
+INFO:     127.0.0.1:65192 - "GET /api/v1/approvals/pending HTTP/1.1" 200 OK
+Error fetching pending approvals from Supabase: 
+INFO:     127.0.0.1:57664 - "GET /api/v1/approvals/pending HTTP/1.1" 200 OK
+Error fetching pending approvals from Supabase: 
+INFO:     127.0.0.1:54019 - "GET /api/v1/approvals/pending HTTP/1.1" 200 OK
+Error fetching pending approvals from Supabase: 
+INFO:     127.0.0.1:53317 - "GET /api/v1/approvals/pending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64263 - "GET /api/v1/approvals/pending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61179 - "GET /api/v1/approvals/pending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61047 - "GET /api/v1/approvals/pending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51872 - "GET /api/v1/approvals/pending HTTP/1.1" 200 OK
+Error fetching pending approvals from Supabase: All connection attempts failed
+INFO:     127.0.0.1:65404 - "GET /api/v1/approvals/pending HTTP/1.1" 200 OK
+Error fetching pending approvals from Supabase: All connection attempts failed
+INFO:     127.0.0.1:54580 - "GET /api/v1/approvals/pending HTTP/1.1" 200 OK
+Error fetching pending approvals from Supabase: All connection attempts failed
+INFO:     127.0.0.1:64472 - "GET /api/v1/approvals/pending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65386 - "GET /api/v1/approvals/pending HTTP/1.1" 200 OK
+Supabase insert_incident returned 401: {"message":"Invalid API key","hint":"Double check your Supabase `anon` or `service_role` API key."}
+INFO:     127.0.0.1:64335 - "GET /api/v1/approvals/pending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58526 - "GET /api/v1/approvals/pending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56373 - "GET /api/v1/approvals/pending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56123 - "GET /api/v1/approvals/pending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51733 - "GET /api/v1/approvals/pending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52478 - "GET /api/v1/approvals/pending HTTP/1.1" 200 OK
+Error fetching pending approvals from Supabase: All connection attempts failed
+INFO:     127.0.0.1:61997 - "GET /api/v1/approvals/pending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49780 - "GET /api/v1/approvals/pending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62679 - "GET /api/v1/approvals/pending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60057 - "GET /api/v1/approvals/pending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60742 - "GET /api/v1/approvals/pending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51744 - "GET /api/v1/approvals/pending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60318 - "GET /api/v1/approvals/pending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49218 - "GET /api/v1/approvals/pending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52790 - "GET /api/v1/approvals/pending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54189 - "GET /api/v1/approvals/pending HTTP/1.1" 200 OK
+Failed to authenticate with Copernicus Data Space: [Errno 11001] getaddrinfo failed
+INFO:     127.0.0.1:59315 - "GET /api/v1/coastal-regions HTTP/1.1" 200 OK
+Error fetching pending approvals from Supabase: [Errno 11001] getaddrinfo failed
+INFO:     127.0.0.1:59314 - "GET /api/v1/approvals/pending HTTP/1.1" 200 OK
+Live Copernicus OData query skipped/errored: [Errno 11001] getaddrinfo failed
+INFO:     127.0.0.1:56146 - "GET /api/v1/coastal-regions HTTP/1.1" 200 OK
+Error fetching pending approvals from Supabase: [Errno 11001] getaddrinfo failed
+INFO:     127.0.0.1:61463 - "GET /api/v1/approvals/pending HTTP/1.1" 200 OK
+Error fetching pending approvals from Supabase: [Errno 11001] getaddrinfo failed
+INFO:     127.0.0.1:56147 - "GET /api/v1/approvals/pending HTTP/1.1" 200 OK
+Failed to insert incident to Supabase: [Errno 11001] getaddrinfo failed
+Error fetching pending approvals from Supabase: [Errno 11001] getaddrinfo failed
+INFO:     127.0.0.1:60890 - "GET /api/v1/coastal-regions HTTP/1.1" 200 OK
+Error fetching pending approvals from Supabase: [Errno 11001] getaddrinfo failed
+INFO:     127.0.0.1:60889 - "GET /api/v1/approvals/pending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60894 - "GET /api/v1/coastal-regions HTTP/1.1" 200 OK
+Error fetching pending approvals from Supabase: [Errno 11001] getaddrinfo failed
+INFO:     127.0.0.1:60895 - "GET /api/v1/approvals/pending HTTP/1.1" 200 OK
+Error fetching pending approvals from Supabase: [Errno 11001] getaddrinfo failed
+INFO:     127.0.0.1:61636 - "GET /api/v1/approvals/pending HTTP/1.1" 200 OK
+Error fetching pending approvals from Supabase: [Errno 11001] getaddrinfo failed
+INFO:     127.0.0.1:49210 - "GET /api/v1/approvals/pending HTTP/1.1" 200 OK
+Error fetching pending approvals from Supabase: [Errno 11001] getaddrinfo failed
+INFO:     127.0.0.1:52361 - "GET /api/v1/approvals/pending HTTP/1.1" 200 OK
+Error fetching pending approvals from Supabase: [Errno 11001] getaddrinfo failed
+INFO:     127.0.0.1:58703 - "GET /api/v1/approvals/pending HTTP/1.1" 200 OK
+Error fetching pending approvals from Supabase: [Errno 11001] getaddrinfo failed
+INFO:     127.0.0.1:56134 - "GET /api/v1/approvals/pending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64094 - "GET /api/v1/approvals/pending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53199 - "GET /api/v1/approvals/pending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53720 - "GET /api/v1/approvals/pending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53907 - "GET /api/v1/approvals/pending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64452 - "GET /api/v1/approvals/pending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59157 - "GET /api/v1/approvals/pending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57409 - "GET /api/v1/approvals/pending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57416 - "GET /api/v1/approvals/pending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63424 - "GET /api/v1/approvals/pending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53203 - "GET /api/v1/approvals/pending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50604 - "GET /api/v1/approvals/pending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52722 - "GET /api/v1/approvals/pending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55741 - "GET /api/v1/approvals/pending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64090 - "GET /api/v1/approvals/pending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65256 - "GET /api/v1/approvals/pending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57888 - "GET /api/v1/approvals/pending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50335 - "GET /api/v1/approvals/pending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56988 - "GET /api/v1/approvals/pending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53320 - "GET /api/v1/approvals/pending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65160 - "GET /api/v1/approvals/pending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54292 - "GET /api/v1/approvals/pending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52513 - "GET /api/v1/approvals/pending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57812 - "GET /api/v1/approvals/pending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49308 - "GET /api/v1/approvals/pending HTTP/1.1" 200 OK
+Error fetching pending approvals from Supabase: [Errno 11001] getaddrinfo failed
+INFO:     127.0.0.1:54917 - "GET /api/v1/coastal-regions HTTP/1.1" 200 OK
+Error fetching pending approvals from Supabase: [Errno 11001] getaddrinfo failed
+INFO:     127.0.0.1:54916 - "GET /api/v1/approvals/pending HTTP/1.1" 200 OK
+Error fetching pending approvals from Supabase: [Errno 11001] getaddrinfo failed
+INFO:     127.0.0.1:53849 - "GET /api/v1/approvals/pending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65384 - "GET /api/v1/coastal-regions HTTP/1.1" 200 OK
+Error fetching pending approvals from Supabase: [Errno 11001] getaddrinfo failed
+INFO:     127.0.0.1:65386 - "GET /api/v1/approvals/pending HTTP/1.1" 200 OK
+Failed to authenticate with Copernicus Data Space: [Errno 11001] getaddrinfo failed
+INFO:     127.0.0.1:58599 - "GET /api/v1/coastal-regions HTTP/1.1" 200 OK
+Live Copernicus OData query skipped/errored: All connection attempts failed
+INFO:     127.0.0.1:63238 - "GET /api/v1/coastal-regions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63845 - "GET /api/v1/approvals/pending HTTP/1.1" 200 OK
+Supabase insert_incident returned 401: {"message":"Invalid API key","hint":"Double check your Supabase `anon` or `service_role` API key."}
+INFO:     127.0.0.1:62731 - "GET /api/v1/approvals/pending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51745 - "GET /api/v1/approvals/pending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61994 - "GET /api/v1/approvals/pending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61568 - "GET /api/v1/approvals/pending HTTP/1.1" 200 OK
