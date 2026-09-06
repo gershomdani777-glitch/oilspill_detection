@@ -251,8 +251,28 @@ async def notify_ws(job_id: str, stage: str, progress: int, msg: str, result_id:
             active_connections[job_id].remove(d)
 
 async def run_pipeline_task(job_id: str, region_id: str, geometry: Dict[str, Any]):
-    reg = regions_store.get(region_id, {"bbox": [57.5, -20.5, 57.9, -20.2]})
+    # 1. Try the user-drawn region (from /api/v1/regions/select)
+    reg = regions_store.get(region_id)
+    # 2. Fall back to the predefined coastal region (from scene_registry)
+    if not reg:
+        predefined = scene_registry.get_region(region_id)
+        if predefined:
+            reg = {
+                "region_id": predefined.id,
+                "geometry": predefined.geometry.model_dump() if hasattr(predefined.geometry, "model_dump") else predefined.geometry,
+                "bbox": predefined.bbox,
+                "area_sq_km": predefined.area_sq_km,
+            }
+    # 3. Final fallback (legacy) — Mauritius
+    if not reg:
+        reg = {"bbox": [57.5, -20.5, 57.9, -20.2]}
+
     bbox = reg.get("bbox", [57.5, -20.5, 57.9, -20.2])
+    # Use region geometry from reg if no geometry was provided
+    if not geometry:
+        geom = reg.get("geometry")
+        if geom:
+            geometry = geom
 
     try:
         # 1. SAR ACQUISITION

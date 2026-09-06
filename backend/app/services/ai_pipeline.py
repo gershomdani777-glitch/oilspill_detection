@@ -194,8 +194,13 @@ class AIPipeline:
         width = max(0.01, (max_lon - min_lon) * 0.35)
         height = max(0.01, (max_lat - min_lat) * 0.25)
 
+        # Cap the polygon size so it never overflows small regions.
+        # r is in degrees; 0.025 deg ≈ 2.7 km — keeps the slick well inside the bbox.
+        max_radius_deg = 0.025
+        base_radius = min(width, height) * 0.8
+        r_base = min(base_radius, max_radius_deg)
+
         angles = np.linspace(0, 2 * np.pi, 28, endpoint=False)
-        r_base = min(width, height) * 0.8
 
         # Primary oil slick contour
         coords_main = []
@@ -208,10 +213,12 @@ class AIPipeline:
             coords_main.append([round(float(lon), 5), round(float(lat), 5)])
         coords_main.append(coords_main[0])
 
-        # Secondary trailing slick (wake dispersion)
+        # Secondary trailing slick (wake dispersion) — offset kept inside bbox
         coords_sec = []
-        sec_center_lon = center_lon + width * 0.55
-        sec_center_lat = center_lat - height * 0.35
+        sec_offset_lon = min(width * 0.55, max_radius_deg * 0.6)
+        sec_offset_lat = min(height * 0.35, max_radius_deg * 0.6)
+        sec_center_lon = center_lon + sec_offset_lon
+        sec_center_lat = center_lat - sec_offset_lat
         r_sec = r_base * 0.4
         for i, a in enumerate(angles):
             r = r_sec * (1.0 + 0.3 * np.sin(2 * a))

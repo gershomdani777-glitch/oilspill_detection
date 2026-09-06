@@ -168,7 +168,7 @@ class MonitoringScheduler:
         # 3. Model Inference (Guarded by dedicated GPU Concurrency Semaphore)
         async with self._gpu_semaphore:
             logger.info(f"Executing GPU inference pipeline for scene {scene.id} (semaphore acquired)...")
-            spill_data = ai_pipeline.process_scene_geometry(scene.footprint, region.bbox)
+            spill_data = ai_pipeline.process_scene_geometry(scene.footprint, region.bbox, region_id=region.id)
 
         # 4. Handle Detection or Clean Scene
         if not spill_data.get("spill_detected", True):
