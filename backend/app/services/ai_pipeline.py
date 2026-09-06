@@ -34,6 +34,32 @@ def is_in_high_risk_zone(center_lat: float, center_lon: float) -> Tuple[bool, Op
             return True, name
     return False, None
 
+
+# Per-region ocean-biased offsets (degrees) — applied to the bbox center so
+# generated spill polygons sit in the water, not on land. Format: (region_id,
+# lat_offset, lon_offset).  The default fallback in _apply_ocean_offset() is
+# (0, 0) for regions not listed.
+REGION_OCEAN_OFFSETS = {
+    # Mauritius bbox center sits on the island; push it ~18 km offshore to the SE.
+    "reg-mauritius-01": ( -0.06, 0.18),
+    # Strait of Malacca bbox straddles coast; push slightly seaward.
+    "reg-malacca-02":   (  0.00, 0.05),
+    # Gulf of Mexico is already open water.
+    "reg-gom-03":       (  0.00, 0.00),
+    # Persian Gulf — keep central.
+    "reg-hormuz-04":    (  0.00, 0.00),
+}
+
+
+def _apply_ocean_offset(region_id: Optional[str], lat: float, lon: float) -> Tuple[float, float]:
+    """Shift a centroid away from land for a known region. Returns (lat, lon)."""
+    if not region_id:
+        return lat, lon
+    delta = REGION_OCEAN_OFFSETS.get(region_id)
+    if not delta:
+        return lat, lon
+    return lat + delta[0], lon + delta[1]
+
 def estimate_spill_age_bucket(area_km2: float, elongation: float, compactness: float, wind_speed_ms: float) -> Dict[str, Any]:
     """
     Component 3 Enhancement: Spill Age Bucketing & Dynamic AIS Attribution Window
@@ -114,13 +140,21 @@ class AIPipeline:
         self.seg_weights_path = MODELS_DIR / "unet_efficientnetb4_segmentation.joblib"
         self.lookalike_weights_path = MODELS_DIR / "resnet50_lookalike_classifier.joblib"
 
-    def process_scene_geometry(self, region_geometry: Dict[str, Any], bbox: List[float]) -> Dict[str, Any]:
+    def process_scene_geometry(
+        self,
+        region_geometry: Dict[str, Any],
+        bbox: List[float],
+        region_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
         """
         Executes segmentation, spatial priors calculation, look-alike rejection, and spill age bucketing.
         """
         min_lon, min_lat, max_lon, max_lat = bbox
         center_lon = (min_lon + max_lon) / 2.0
         center_lat = (min_lat + max_lat) / 2.0
+
+        # Push the spill centroid offshore for regions whose bbox center is on land
+        center_lat, center_lon = _apply_ocean_offset(region_id, center_lat, center_lon)
 
         in_hotspot, zone_name = is_in_high_risk_zone(center_lat, center_lon)
         spatial_priors = compute_spatial_priors(center_lat, center_lon)

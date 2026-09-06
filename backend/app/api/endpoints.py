@@ -270,7 +270,7 @@ async def run_pipeline_task(job_id: str, region_id: str, geometry: Dict[str, Any
         jobs_store[job_id].update({"stage": PipelineStage.SEGMENTING, "progress_pct": 55, "message": "Executing U-Net EfficientNet-B4 segmentation inference..."})
         await notify_ws(job_id, "segmenting", 55, "Executing U-Net EfficientNet-B4 segmentation inference...")
         await asyncio.sleep(0.5)
-        spill_data = ai_pipeline.process_scene_geometry(geometry, bbox)
+        spill_data = ai_pipeline.process_scene_geometry(geometry, bbox, region_id=region_id)
 
         # 4. FILTERING & LOOK-ALIKE DISCRIMINATION
         jobs_store[job_id].update({"stage": PipelineStage.FILTERING, "progress_pct": 70, "message": "ResNet-50 look-alike rejection & spatial prior weighting..."})
